@@ -168,10 +168,15 @@ async function loadFromSheet() {
         
         let loadedData = parseCSVToSchedule(csvText);
         
-        // دمج الأيام الموجودة لضمان بقاء الأيام الفارغة
-        scheduleData.forEach(d => {
-            let found = loadedData.find(ld => ld.day === d.day);
-            d.sessions = found ? found.sessions : [];
+        // تفريغ المحاضرات الحالية قبل التحديث
+        scheduleData.forEach(d => d.sessions = []);
+        
+        // دمج البيانات المحملة بذكاء
+        loadedData.forEach(ld => {
+            let found = scheduleData.find(d => d.day === ld.day);
+            if (found) {
+                found.sessions = ld.sessions;
+            }
         });
 
         renderTable();
@@ -179,28 +184,35 @@ async function loadFromSheet() {
     } catch (error) {
         console.error('Error loading:', error);
         updateSyncBadge('error');
-        loadBackupData();
     } finally {
         showLoading(false);
     }
 }
 
+// 2. معالجة البيانات القادمة من جوجل (تم تعديل الذكاء هنا لتجميع المحاضرات)
 function parseCSVToSchedule(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim());
     const data = [];
-    let currentDay = null;
+    let currentDayName = null;
     
     for (let i = 1; i < lines.length; i++) {
         const columns = parseCSVLine(lines[i].trim());
         if (!columns[1] && !columns[2]) continue;
         
-        if (columns[0]) {
-            currentDay = { day: columns[0], sessions: [] };
-            data.push(currentDay);
+        // تحديث اسم اليوم إذا كان مكتوباً في الخلية
+        if (columns[0] && columns[0].trim() !== '') {
+            currentDayName = columns[0].trim();
         }
         
-        if (currentDay && columns[1]) {
-            currentDay.sessions.push({
+        if (currentDayName) {
+            // البحث إذا كان اليوم موجوداً بالفعل لإضافة المحاضرة إليه
+            let dayObj = data.find(d => d.day === currentDayName);
+            if (!dayObj) {
+                dayObj = { day: currentDayName, sessions: [] };
+                data.push(dayObj);
+            }
+            
+            dayObj.sessions.push({
                 time: columns[1] || '',
                 subject: columns[2] || '',
                 type: columns[3] || 'محاضرة',
@@ -244,7 +256,7 @@ function renderTable() {
     tbody.innerHTML = '';
     
     scheduleData.forEach((dayData, dayIndex) => {
-        // في حالة اليوم فارغ (لا توجد محاضرات)
+        // في حالة اليوم فارغ
         if (dayData.sessions.length === 0) {
             if (isEditMode) {
                 const tr = document.createElement('tr');
@@ -267,21 +279,19 @@ function renderTable() {
                 
                 tbody.appendChild(tr);
             }
-            return; // تخطي للأيام الفارغة في وضع القراءة
+            return;
         }
 
         // رسم المحاضرات لليوم
         dayData.sessions.forEach((session, sessionIndex) => {
             const tr = document.createElement('tr');
             
-            // خلية اليوم
             if (sessionIndex === 0) {
                 const dayCell = document.createElement('td');
                 dayCell.className = 'day-cell';
                 dayCell.rowSpan = dayData.sessions.length;
                 dayCell.innerHTML = `<div>${dayData.day}</div>`;
                 
-                // إضافة زر إضافة مادة في وضع التعديل
                 if (isEditMode) {
                     const addBtn = document.createElement('button');
                     addBtn.className = 'btn-add-session';
@@ -292,7 +302,6 @@ function renderTable() {
                 tr.appendChild(dayCell);
             }
 
-            // الوقت
             const timeCell = document.createElement('td');
             timeCell.className = isEditMode ? 'editable' : '';
             timeCell.contentEditable = isEditMode;
@@ -303,7 +312,6 @@ function renderTable() {
             if(isEditMode) timeCell.addEventListener('blur', saveEditedCellLocally);
             tr.appendChild(timeCell);
 
-            // المادة و النوع
             const subjectCell = document.createElement('td');
             subjectCell.className = 'subject-cell';
             
@@ -317,7 +325,6 @@ function renderTable() {
             if(isEditMode) subjText.addEventListener('blur', saveEditedCellLocally);
             subjectCell.appendChild(subjText);
             
-            // تحديد النوع (محاضرة، سكشن، عملي)
             if (isEditMode) {
                 const typeSelect = document.createElement('select');
                 typeSelect.style.marginTop = '5px';
@@ -341,7 +348,6 @@ function renderTable() {
             }
             tr.appendChild(subjectCell);
 
-            // المكان
             const placeCell = document.createElement('td');
             placeCell.className = isEditMode ? 'editable' : '';
             placeCell.contentEditable = isEditMode;
@@ -352,7 +358,6 @@ function renderTable() {
             if(isEditMode) placeCell.addEventListener('blur', saveEditedCellLocally);
             tr.appendChild(placeCell);
 
-            // حالة المحاضرة و زر الحذف
             const statusCell = document.createElement('td');
             if (isEditMode) {
                 const deleteBtn = document.createElement('button');
@@ -413,7 +418,6 @@ function updateTypeLocally(e) {
 async function saveToSheet() {
     showLoading(true);
     try {
-        // تنظيف البيانات (إزالة الأيام الفارغة قبل الإرسال لتوفير مساحة)
         const dataToSave = scheduleData.filter(d => d.sessions.length > 0);
         
         await fetch(APP_SCRIPT_URL, {
@@ -423,8 +427,7 @@ async function saveToSheet() {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         
-        localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
-        showNotification('تم حفظ الإضافات والتعديلات بنجاح! ✅', 'success');
+        showNotification('تم حفظ التعديلات بنجاح! سيظهر للجميع الآن ✅', 'success');
         updateSyncBadge('success');
     } catch (error) {
         console.error('Error saving:', error);
@@ -494,9 +497,6 @@ function getStatusClass(status) {
 function getStatusIcon(status) {
     switch(status) { case 'لم تبدأ': return '⏳'; case 'الدكتور وصل': return '👨‍🏫'; case 'بدأت الآن': return '▶️'; case 'انتهت': return '✅'; default: return ''; }
 }
-
-function getBackupData() { return JSON.parse(localStorage.getItem('scheduleData')) || []; }
-function loadBackupData() { scheduleData = getBackupData(); renderTable(); }
 
 // التشغيل
 loadFromSheet();
