@@ -138,10 +138,11 @@
 <script>
 // --- إعدادات Google Sheets ---
 const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
-const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+// إضافة gid=0 لضمان قراءة الصفحة الأولى (نظام إدارة) دائماً
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
-// تم إضافة الرابط الخاص بك بنجاح
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyjG6sJQ1_hkt0ZZGuZiMIcux6MJh_9aSWGzZTNASxWpguEPR8GC1sll7ypP5Yo55xp/exec';
+// الرابط الجديد الذي أرسلته (رابط التطبيق الخاص بك)
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrE6RBiKioGfl0kY3-kQ1UwEdXR3WpIW8MLLSuomxNiQYQd_DT92TLovOz5tQSTmal/exec';
 
 let scheduleData = [];
 let isEditMode = false;
@@ -165,18 +166,22 @@ async function loadFromSheet() {
     }
 }
 
-// 2. معالجة البيانات
+// 2. معالجة البيانات القادمة من جوجل
 function parseCSVToSchedule(csvText) {
     const lines = csvText.split('\n').filter(line => line.trim());
     const data = [];
     let currentDay = null;
+    
+    // نبدأ من 1 لتخطي سطر العناوين
     for (let i = 1; i < lines.length; i++) {
         const columns = parseCSVLine(lines[i].trim());
-        if (!columns[1] && !columns[2]) continue;
+        if (!columns[1] && !columns[2]) continue; // تخطي الأسطر الفارغة
+        
         if (columns[0]) {
             currentDay = { day: columns[0], sessions: [] };
             data.push(currentDay);
         }
+        
         if (currentDay && columns[1]) {
             currentDay.sessions.push({
                 time: columns[1] || '',
@@ -203,10 +208,11 @@ function parseCSVLine(line) {
     return result;
 }
 
-// 3. رسم الجدول
+// 3. رسم وبناء الجدول
 function renderTable() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
+    
     scheduleData.forEach((dayData, dayIndex) => {
         dayData.sessions.forEach((session, sessionIndex) => {
             const tr = document.createElement('tr');
@@ -308,14 +314,14 @@ function updateStatusLocally(e) {
     e.target.className = `status-${getStatusClass(newStatus)}`;
 }
 
-// 5. الحفظ النهائي في Google Sheets (مع حل مشكلة CORS)
+// 5. الحفظ النهائي في Google Sheets (مع تخطي الـ CORS)
 async function saveToSheet() {
     showLoading(true);
     try {
         // إرسال البيانات إلى Google Apps Script
         await fetch(APP_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // السطر السحري لحل مشكلة الإرسال
+            mode: 'no-cors', // السطر السحري لحل مشكلة الإرسال لجوجل
             body: JSON.stringify(scheduleData),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
@@ -333,7 +339,7 @@ async function saveToSheet() {
     }
 }
 
-// نظام الدخول
+// نظام الدخول كمسؤول
 function unlockAdmin() {
     if (document.getElementById('passCode').value === '2003') {
         isEditMode = true;
@@ -359,7 +365,7 @@ function lockAdmin() {
     loadFromSheet(); // جلب آخر نسخة من الشيت لضمان التزامن
 }
 
-// دوال مساعدة
+// دوال مساعدة للواجهة
 function updateSyncBadge(status) {
     const badge = document.getElementById('syncBadge');
     if (status === 'loading') { badge.className = 'sync-badge syncing'; badge.innerHTML = '🔄 جاري التحميل...'; }
@@ -372,8 +378,15 @@ function showNotification(msg, type) {
     n.textContent = msg; n.className = `notification notification-${type} show`;
     setTimeout(() => n.classList.remove('show'), 3000);
 }
+
 function showLoading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; }
-function getTypeClass(type) { if (type.includes('سكشن')) return 'section'; if (type.includes('عملي')) return 'practical'; return 'lecture'; }
+
+function getTypeClass(type) { 
+    if (type.includes('سكشن')) return 'section'; 
+    if (type.includes('عملي')) return 'practical'; 
+    return 'lecture'; 
+}
+
 function getStatusClass(status) {
     switch(status) {
         case 'لم تبدأ': return 'not-started';
@@ -383,13 +396,18 @@ function getStatusClass(status) {
         default: return 'not-started';
     }
 }
+
 function getStatusIcon(status) {
     switch(status) { case 'لم تبدأ': return '⏳'; case 'الدكتور وصل': return '👨‍🏫'; case 'بدأت الآن': return '▶️'; case 'انتهت': return '✅'; default: return ''; }
 }
+
 function getBackupData() { return JSON.parse(localStorage.getItem('scheduleData')) || []; }
 function loadBackupData() { scheduleData = getBackupData(); renderTable(); }
 
+// بدء تشغيل النظام
 loadFromSheet();
+
+// تحديث تلقائي للجدول كل 30 ثانية في وضع القراءة
 setInterval(() => { if (!isEditMode) loadFromSheet(); }, 30000);
 </script>
 
