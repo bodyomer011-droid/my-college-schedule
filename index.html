@@ -99,7 +99,7 @@
 <div class="container">
     <div class="header">
         <div class="header-title-box">نظام إدارة المحاضرات الذكي 📚</div>
-        <p class="subtitle">التعديلات تُحفظ وتظهر تلقائياً في Google Sheets</p>
+        <p class="subtitle">التعديلات تُحفظ وتظهر تلقائياً في Google Sheets للجميع</p>
         <div class="sync-badge" id="syncBadge">🔄 جاري التحميل...</div>
     </div>
 
@@ -138,21 +138,25 @@
 <script>
 // --- إعدادات Google Sheets ---
 const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
-const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const SHEET_CSV_BASE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
-// الرابط الجديد النهائي (تخطى مشكلة الـ CORS ومسؤول عن الحفظ)
+// الرابط الجديد النهائي
 const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTwxtuiIATI2t-SVbkdHzZR2lOW1jXQOJ-7SIh32a3UoCPhfmtLeSXyzFqI3sEv7dP/exec';
 
 let scheduleData = [];
 let isEditMode = false;
 
-// 1. تحميل البيانات من الشيت
+// 1. تحميل البيانات من الشيت (مع ميزة كسر الكاش لضمان جلب أحدث بيانات)
 async function loadFromSheet() {
     showLoading(true);
     updateSyncBadge('loading');
     try {
-        const response = await fetch(SHEET_CSV_URL);
+        // إضافة الوقت الحالي للرابط يجبر المتصفح على جلب البيانات الحقيقية من جوجل وتجاهل النسخة المخبأة
+        const noCacheUrl = SHEET_CSV_BASE_URL + '&t=' + new Date().getTime();
+        
+        const response = await fetch(noCacheUrl, { cache: "no-store" });
         const csvText = await response.text();
+        
         scheduleData = parseCSVToSchedule(csvText);
         renderTable();
         updateSyncBadge('success');
@@ -171,10 +175,9 @@ function parseCSVToSchedule(csvText) {
     const data = [];
     let currentDay = null;
     
-    // نبدأ من 1 لتخطي سطر العناوين
     for (let i = 1; i < lines.length; i++) {
         const columns = parseCSVLine(lines[i].trim());
-        if (!columns[1] && !columns[2]) continue; // تخطي الأسطر الفارغة
+        if (!columns[1] && !columns[2]) continue;
         
         if (columns[0]) {
             currentDay = { day: columns[0], sessions: [] };
@@ -298,7 +301,7 @@ function renderTable() {
     });
 }
 
-// 4. الحفظ المؤقت في المتصفح عند التعديل
+// 4. الحفظ المؤقت
 function saveEditedCellLocally(e) {
     const dIdx = parseInt(e.target.dataset.dayIndex);
     const sIdx = parseInt(e.target.dataset.sessionIndex);
@@ -313,22 +316,19 @@ function updateStatusLocally(e) {
     e.target.className = `status-${getStatusClass(newStatus)}`;
 }
 
-// 5. الحفظ النهائي في Google Sheets (مع تخطي الـ CORS)
+// 5. الحفظ النهائي في Google Sheets
 async function saveToSheet() {
     showLoading(true);
     try {
-        // إرسال البيانات إلى Google Apps Script
         await fetch(APP_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // السطر السحري لحل مشكلة الإرسال لجوجل
+            mode: 'no-cors',
             body: JSON.stringify(scheduleData),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         
-        // حفظ محلي احتياطي
         localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
-        
-        showNotification('تم تحديث الجدول في Google Sheets بنجاح! ✅', 'success');
+        showNotification('تم تحديث الجدول بنجاح! سيظهر للجميع الآن ✅', 'success');
         updateSyncBadge('success');
     } catch (error) {
         console.error('Error saving:', error);
@@ -338,7 +338,7 @@ async function saveToSheet() {
     }
 }
 
-// نظام الدخول كمسؤول
+// الدخول
 function unlockAdmin() {
     if (document.getElementById('passCode').value === '2003') {
         isEditMode = true;
@@ -360,15 +360,14 @@ function lockAdmin() {
     badge.className = 'status-badge status-locked';
     badge.innerHTML = '🔒 وضع القراءة فقط';
     document.getElementById('passCode').value = '';
-    renderTable();
-    loadFromSheet(); // جلب آخر نسخة من الشيت لضمان التزامن
+    loadFromSheet(); // يتم جلب البيانات المحدثة عند الخروج
 }
 
-// دوال مساعدة للواجهة
+// دوال مساعدة
 function updateSyncBadge(status) {
     const badge = document.getElementById('syncBadge');
     if (status === 'loading') { badge.className = 'sync-badge syncing'; badge.innerHTML = '🔄 جاري التحميل...'; }
-    else if (status === 'success') { badge.className = 'sync-badge'; badge.innerHTML = '✅ متزامن مع Google Sheets'; }
+    else if (status === 'success') { badge.className = 'sync-badge'; badge.innerHTML = '✅ متزامن مع أحدث البيانات'; }
     else if (status === 'error') { badge.className = 'sync-badge error'; badge.innerHTML = '⚠️ خطأ في التزامن'; }
 }
 
@@ -403,11 +402,11 @@ function getStatusIcon(status) {
 function getBackupData() { return JSON.parse(localStorage.getItem('scheduleData')) || []; }
 function loadBackupData() { scheduleData = getBackupData(); renderTable(); }
 
-// بدء تشغيل النظام
+// التشغيل
 loadFromSheet();
 
-// تحديث تلقائي للجدول كل 30 ثانية في وضع القراءة
-setInterval(() => { if (!isEditMode) loadFromSheet(); }, 30000);
+// تحديث تلقائي كل 15 ثانية للطلبة في وضع القراءة
+setInterval(() => { if (!isEditMode) loadFromSheet(); }, 15000);
 </script>
 
 </body>
