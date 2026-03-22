@@ -140,18 +140,17 @@
 const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
 const SHEET_CSV_BASE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
-// الرابط الجديد النهائي
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTwxtuiIATI2t-SVbkdHzZR2lOW1jXQOJ-7SIh32a3UoCPhfmtLeSXyzFqI3sEv7dP/exec';
+// الرابط الجديد الذي تم إنشاؤه لصفحة المحاضرات
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqJoTMA29cOMaDdIeLiX6EO8i6IXdUCf8ltV4CbKBOEAN0xMVqxCqRtSoi68Q8TXYS/exec';
 
 let scheduleData = [];
 let isEditMode = false;
 
-// 1. تحميل البيانات من الشيت (مع ميزة كسر الكاش لضمان جلب أحدث بيانات)
+// 1. تحميل البيانات من الشيت
 async function loadFromSheet() {
     showLoading(true);
     updateSyncBadge('loading');
     try {
-        // إضافة الوقت الحالي للرابط يجبر المتصفح على جلب البيانات الحقيقية من جوجل وتجاهل النسخة المخبأة
         const noCacheUrl = SHEET_CSV_BASE_URL + '&t=' + new Date().getTime();
         
         const response = await fetch(noCacheUrl, { cache: "no-store" });
@@ -360,7 +359,7 @@ function lockAdmin() {
     badge.className = 'status-badge status-locked';
     badge.innerHTML = '🔒 وضع القراءة فقط';
     document.getElementById('passCode').value = '';
-    loadFromSheet(); // يتم جلب البيانات المحدثة عند الخروج
+    loadFromSheet(); 
 }
 
 // دوال مساعدة
