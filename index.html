@@ -140,8 +140,8 @@
 const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
-// 🔴🔴🔴 ضع الرابط الذي نسخته من جوجل في السطر التالي بين علامات التنصيص 🔴🔴🔴
-const APP_SCRIPT_URL = 'رابط_الويب_اب_هنا';
+// تم إضافة الرابط الخاص بك بنجاح
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyjG6sJQ1_hkt0ZZGuZiMIcux6MJh_9aSWGzZTNASxWpguEPR8GC1sll7ypP5Yo55xp/exec';
 
 let scheduleData = [];
 let isEditMode = false;
@@ -308,20 +308,16 @@ function updateStatusLocally(e) {
     e.target.className = `status-${getStatusClass(newStatus)}`;
 }
 
-// 5. الحفظ النهائي في Google Sheets (هذا هو الكود الجديد)
+// 5. الحفظ النهائي في Google Sheets (مع حل مشكلة CORS)
 async function saveToSheet() {
-    if (APP_SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbyjG6sJQ1_hkt0ZZGuZiMIcux6MJh_9aSWGzZTNASxWpguEPR8GC1sll7ypP5Yo55xp/exec') {
-        showNotification('يرجى إضافة رابط Web App في الكود لكي يعمل الحفظ', 'error');
-        return;
-    }
-
     showLoading(true);
     try {
         // إرسال البيانات إلى Google Apps Script
-        const response = await fetch(APP_SCRIPT_URL, {
+        await fetch(APP_SCRIPT_URL, {
             method: 'POST',
+            mode: 'no-cors', // السطر السحري لحل مشكلة الإرسال
             body: JSON.stringify(scheduleData),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' } // نستخدم text/plain لتفادي أخطاء CORS
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         
         // حفظ محلي احتياطي
@@ -331,7 +327,7 @@ async function saveToSheet() {
         updateSyncBadge('success');
     } catch (error) {
         console.error('Error saving:', error);
-        showNotification('فشل الحفظ في جوجل شيت، تأكد من إعدادات الرابط', 'error');
+        showNotification('فشل الحفظ، يرجى المحاولة مرة أخرى', 'error');
     } finally {
         showLoading(false);
     }
