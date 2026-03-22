@@ -1,32 +1,401 @@
-function doPost(e) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    // استلام البيانات من الموقع
-    var data = JSON.parse(e.postData.contents);
-    
-    // مسح البيانات القديمة (لتحديثها بالجديدة)
-    sheet.clearContents();
-    
-    // كتابة عناوين الأعمدة من جديد
-    sheet.appendRow(["اليوم", "الوقت", "المادة", "النوع", "المكان", "الحالة"]);
-    
-    // كتابة البيانات الجديدة
-    data.forEach(function(dayObj) {
-      var dayName = dayObj.day;
-      dayObj.sessions.forEach(function(session) {
-        sheet.appendRow([
-          dayName,
-          session.time || "",
-          session.subject || "",
-          session.type || "محاضرة",
-          session.place || "",
-          session.status || "لم تبدأ"
-        ]);
-      });
-    });
-    
-    return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
-  } catch(error) {
-    return ContentService.createTextOutput("Error: " + error.toString()).setMimeType(ContentService.MimeType.TEXT);
-  }
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة المحاضرات الذكي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #5c6bc0; 
+            --primary-hover: #3f51b5;
+            --bg-body: #f4f5f9;
+            --bg-container: #ffffff;
+            --text-dark: #374151;
+            --text-muted: #6b7280;
+            --border-light: #e5e7eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+
+        body { background-color: var(--bg-body); padding: 30px 15px; color: var(--text-dark); min-height: 100vh; }
+
+        .container { max-width: 1100px; margin: auto; background: var(--bg-container); padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+
+        .header { text-align: center; margin-bottom: 30px; }
+        .header-title-box { background-color: var(--primary); color: white; display: inline-block; padding: 10px 40px; border-radius: 8px; font-size: 2.2rem; font-weight: 800; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(92, 107, 192, 0.3); }
+        .subtitle { color: var(--text-muted); font-size: 1.1rem; font-weight: 600; }
+
+        .sync-badge { display: inline-flex; align-items: center; gap: 8px; padding: 5px 15px; border-radius: 50px; font-size: 0.85rem; font-weight: 700; margin-top: 15px; background: #d1fae5; color: #059669; }
+        .sync-badge.syncing { background: #fef3c7; color: #d97706; }
+        .sync-badge.error { background: #fee2e2; color: #dc2626; }
+
+        .control-bar { background-color: #f8fafc; border: 1px solid var(--border-light); padding: 15px 25px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 15px; }
+
+        .login-section { display: flex; gap: 10px; align-items: center; }
+        input[type="password"] { padding: 10px 15px; border: 1px solid #d1d5db; border-radius: 8px; text-align: center; font-weight: 600; outline: none; transition: 0.3s; }
+        input[type="password"]:focus { border-color: var(--primary); }
+
+        button { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: #fee2e2; color: #dc2626; }
+
+        .status-badge { padding: 8px 20px; border-radius: 50px; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+        .status-locked { background: #fee2e2; color: #dc2626; }
+        .status-unlocked { background: #d1fae5; color: #059669; }
+
+        .table-wrapper { border: 1.5px solid var(--primary); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th { background-color: var(--primary); color: white; padding: 15px; font-weight: 700; font-size: 1.05rem; border-left: 1px solid rgba(255,255,255,0.2); }
+        th:last-child { border-left: none; }
+        td { padding: 15px; border-bottom: 1px solid var(--border-light); border-left: 1px solid var(--border-light); vertical-align: middle; }
+        td:last-child { border-left: none; }
+        tr:last-child td { border-bottom: none; }
+
+        .day-cell { background-color: #f8fafc; color: var(--primary); font-weight: 800; font-size: 1.1rem; width: 12%; }
+        .subject-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; justify-content: center; border-left: none !important;}
+        .subject-text { font-weight: 700; color: #1f2937; }
+        
+        .type-badge { padding: 2px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; }
+        .type-lecture { background: #e0e7ff; color: #4338ca; }
+        .type-section { background: #fce7f3; color: #be185d; }
+        .type-practical { background: #d1fae5; color: #059669; }
+
+        select { appearance: none; padding: 8px 35px 8px 15px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; outline: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: left 10px center; background-size: 1em; text-align: center; transition: 0.3s; }
+        select:disabled { cursor: not-allowed; opacity: 0.8; }
+
+        .status-not-started { border: 1px solid #d1d5db; color: #9ca3af; background-color: #f9fafb; }
+        .status-arrived { border: 1px solid #fcd34d; color: #d97706; background-color: #fffbeb; }
+        .status-running { border: 1px solid #34d399; color: #059669; background-color: #ecfdf5; }
+        .status-ended { border: 1px solid #9ca3af; color: #4b5563; background-color: #f3f4f6; }
+
+        .editable { cursor: text; transition: 0.3s; padding: 5px; border-radius: 5px; }
+        .editable:focus { background: #fffbeb; outline: 1px dashed var(--warning); }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 5px; font-size: 0.7rem; margin-bottom: 5px; cursor: pointer; }
+
+        .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); padding: 15px 30px; border-radius: 10px; font-weight: 700; color: white; z-index: 1000; opacity: 0; transition: 0.4s; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .notification-success { background: var(--success); }
+        .notification-error { background: var(--danger); }
+
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .loading-spinner { width: 40px; height: 40px; border: 4px solid var(--border-light); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) { .header-title-box { font-size: 1.5rem; padding: 10px 20px; } .control-bar { flex-direction: column; align-items: stretch; } .login-section { justify-content: center; } }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+
+<div class="container">
+    <div class="header">
+        <div class="header-title-box">نظام إدارة المحاضرات الذكي 📚</div>
+        <p class="subtitle">التعديلات تُحفظ وتظهر تلقائياً في Google Sheets</p>
+        <div class="sync-badge" id="syncBadge">🔄 جاري التحميل...</div>
+    </div>
+
+    <div class="control-bar">
+        <span class="status-badge status-locked" id="statusBadge">🔒 وضع القراءة فقط</span>
+
+        <div class="login-section" id="loginSection">
+            <button class="btn-primary" onclick="unlockAdmin()">دخول المدير 🔑</button>
+            <input type="password" id="passCode" placeholder="أدخل الرمز السري">
+        </div>
+
+        <div id="adminControls" style="display: none; display: flex; gap: 10px;">
+            <button class="btn-success" onclick="saveToSheet()">☁️ حفظ في الشيت</button>
+            <button class="btn-danger" onclick="lockAdmin()">🔒 خروج</button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>اليوم</th>
+                    <th>الوقت</th>
+                    <th>المادة</th>
+                    <th>المكان</th>
+                    <th>حالة المحاضرة</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+// --- إعدادات Google Sheets ---
+const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+
+// 🔴🔴🔴 ضع الرابط الذي نسخته من جوجل في السطر التالي بين علامات التنصيص 🔴🔴🔴
+const APP_SCRIPT_URL = 'رابط_الويب_اب_هنا';
+
+let scheduleData = [];
+let isEditMode = false;
+
+// 1. تحميل البيانات من الشيت
+async function loadFromSheet() {
+    showLoading(true);
+    updateSyncBadge('loading');
+    try {
+        const response = await fetch(SHEET_CSV_URL);
+        const csvText = await response.text();
+        scheduleData = parseCSVToSchedule(csvText);
+        renderTable();
+        updateSyncBadge('success');
+    } catch (error) {
+        console.error('Error loading:', error);
+        updateSyncBadge('error');
+        loadBackupData();
+    } finally {
+        showLoading(false);
+    }
 }
+
+// 2. معالجة البيانات
+function parseCSVToSchedule(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    const data = [];
+    let currentDay = null;
+    for (let i = 1; i < lines.length; i++) {
+        const columns = parseCSVLine(lines[i].trim());
+        if (!columns[1] && !columns[2]) continue;
+        if (columns[0]) {
+            currentDay = { day: columns[0], sessions: [] };
+            data.push(currentDay);
+        }
+        if (currentDay && columns[1]) {
+            currentDay.sessions.push({
+                time: columns[1] || '',
+                subject: columns[2] || '',
+                type: columns[3] || 'محاضرة',
+                place: columns[4] || '',
+                status: columns[5] || 'لم تبدأ'
+            });
+        }
+    }
+    return data.length > 0 ? data : getBackupData();
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+        else current += char;
+    }
+    result.push(current.trim());
+    return result;
+}
+
+// 3. رسم الجدول
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    scheduleData.forEach((dayData, dayIndex) => {
+        dayData.sessions.forEach((session, sessionIndex) => {
+            const tr = document.createElement('tr');
+            
+            if (sessionIndex === 0) {
+                const dayCell = document.createElement('td');
+                dayCell.className = 'day-cell';
+                dayCell.rowSpan = dayData.sessions.length;
+                dayCell.textContent = dayData.day;
+                tr.appendChild(dayCell);
+            }
+
+            const timeCell = document.createElement('td');
+            timeCell.className = isEditMode ? 'editable' : '';
+            timeCell.contentEditable = isEditMode;
+            timeCell.textContent = session.time;
+            timeCell.dataset.dayIndex = dayIndex;
+            timeCell.dataset.sessionIndex = sessionIndex;
+            timeCell.dataset.field = 'time';
+            if(isEditMode) timeCell.addEventListener('blur', saveEditedCellLocally);
+            tr.appendChild(timeCell);
+
+            const subjectCell = document.createElement('td');
+            subjectCell.className = 'subject-cell';
+            const subjText = document.createElement('div');
+            subjText.className = isEditMode ? 'editable subject-text' : 'subject-text';
+            subjText.contentEditable = isEditMode;
+            subjText.textContent = session.subject;
+            subjText.dataset.dayIndex = dayIndex;
+            subjText.dataset.sessionIndex = sessionIndex;
+            subjText.dataset.field = 'subject';
+            if(isEditMode) subjText.addEventListener('blur', saveEditedCellLocally);
+            
+            const typeBadge = document.createElement('div');
+            typeBadge.className = `type-badge type-${getTypeClass(session.type)}`;
+            typeBadge.textContent = session.type;
+            subjectCell.appendChild(subjText);
+            subjectCell.appendChild(typeBadge);
+            tr.appendChild(subjectCell);
+
+            const placeCell = document.createElement('td');
+            placeCell.className = isEditMode ? 'editable' : '';
+            placeCell.contentEditable = isEditMode;
+            placeCell.textContent = session.place;
+            placeCell.dataset.dayIndex = dayIndex;
+            placeCell.dataset.sessionIndex = sessionIndex;
+            placeCell.dataset.field = 'place';
+            if(isEditMode) placeCell.addEventListener('blur', saveEditedCellLocally);
+            tr.appendChild(placeCell);
+
+            const statusCell = document.createElement('td');
+            if (isEditMode) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.innerHTML = 'حذف المحاضرة 🗑️';
+                deleteBtn.onclick = () => {
+                    if (confirm('تأكيد الحذف؟ (لا تنسَ الضغط على "حفظ في الشيت" بعد الحذف)')) {
+                        scheduleData[dayIndex].sessions.splice(sessionIndex, 1);
+                        renderTable();
+                    }
+                };
+                statusCell.appendChild(deleteBtn);
+                statusCell.appendChild(document.createElement('br'));
+            }
+            
+            const select = document.createElement('select');
+            select.disabled = !isEditMode;
+            select.className = `status-${getStatusClass(session.status)}`;
+            select.dataset.dayIndex = dayIndex;
+            select.dataset.sessionIndex = sessionIndex;
+            ['لم تبدأ', 'الدكتور وصل', 'بدأت الآن', 'انتهت'].forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status + ' ' + getStatusIcon(status);
+                option.selected = session.status === status;
+                select.appendChild(option);
+            });
+            
+            select.addEventListener('change', updateStatusLocally);
+            statusCell.appendChild(select);
+            tr.appendChild(statusCell);
+            tbody.appendChild(tr);
+        });
+    });
+}
+
+// 4. الحفظ المؤقت في المتصفح عند التعديل
+function saveEditedCellLocally(e) {
+    const dIdx = parseInt(e.target.dataset.dayIndex);
+    const sIdx = parseInt(e.target.dataset.sessionIndex);
+    scheduleData[dIdx].sessions[sIdx][e.target.dataset.field] = e.target.textContent.trim();
+}
+
+function updateStatusLocally(e) {
+    const dIdx = parseInt(e.target.dataset.dayIndex);
+    const sIdx = parseInt(e.target.dataset.sessionIndex);
+    const newStatus = e.target.value;
+    scheduleData[dIdx].sessions[sIdx].status = newStatus;
+    e.target.className = `status-${getStatusClass(newStatus)}`;
+}
+
+// 5. الحفظ النهائي في Google Sheets (هذا هو الكود الجديد)
+async function saveToSheet() {
+    if (APP_SCRIPT_URL === 'رابط_الويب_اب_هنا') {
+        showNotification('يرجى إضافة رابط Web App في الكود لكي يعمل الحفظ', 'error');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        // إرسال البيانات إلى Google Apps Script
+        const response = await fetch(APP_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(scheduleData),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } // نستخدم text/plain لتفادي أخطاء CORS
+        });
+        
+        // حفظ محلي احتياطي
+        localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
+        
+        showNotification('تم تحديث الجدول في Google Sheets بنجاح! ✅', 'success');
+        updateSyncBadge('success');
+    } catch (error) {
+        console.error('Error saving:', error);
+        showNotification('فشل الحفظ في جوجل شيت، تأكد من إعدادات الرابط', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// نظام الدخول
+function unlockAdmin() {
+    if (document.getElementById('passCode').value === '2003') {
+        isEditMode = true;
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminControls').style.display = 'flex';
+        const badge = document.getElementById('statusBadge');
+        badge.className = 'status-badge status-unlocked';
+        badge.innerHTML = '✍️ وضع التعديل (نشط)';
+        renderTable();
+        showNotification('تم فتح وضع التعديل بنجاح', 'success');
+    } else { showNotification('الرمز السري غير صحيح', 'error'); }
+}
+
+function lockAdmin() {
+    isEditMode = false;
+    document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('adminControls').style.display = 'none';
+    const badge = document.getElementById('statusBadge');
+    badge.className = 'status-badge status-locked';
+    badge.innerHTML = '🔒 وضع القراءة فقط';
+    document.getElementById('passCode').value = '';
+    renderTable();
+    loadFromSheet(); // جلب آخر نسخة من الشيت لضمان التزامن
+}
+
+// دوال مساعدة
+function updateSyncBadge(status) {
+    const badge = document.getElementById('syncBadge');
+    if (status === 'loading') { badge.className = 'sync-badge syncing'; badge.innerHTML = '🔄 جاري التحميل...'; }
+    else if (status === 'success') { badge.className = 'sync-badge'; badge.innerHTML = '✅ متزامن مع Google Sheets'; }
+    else if (status === 'error') { badge.className = 'sync-badge error'; badge.innerHTML = '⚠️ خطأ في التزامن'; }
+}
+
+function showNotification(msg, type) {
+    const n = document.getElementById('notification');
+    n.textContent = msg; n.className = `notification notification-${type} show`;
+    setTimeout(() => n.classList.remove('show'), 3000);
+}
+function showLoading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; }
+function getTypeClass(type) { if (type.includes('سكشن')) return 'section'; if (type.includes('عملي')) return 'practical'; return 'lecture'; }
+function getStatusClass(status) {
+    switch(status) {
+        case 'لم تبدأ': return 'not-started';
+        case 'الدكتور وصل': return 'arrived';
+        case 'بدأت الآن': return 'running';
+        case 'انتهت': return 'ended';
+        default: return 'not-started';
+    }
+}
+function getStatusIcon(status) {
+    switch(status) { case 'لم تبدأ': return '⏳'; case 'الدكتور وصل': return '👨‍🏫'; case 'بدأت الآن': return '▶️'; case 'انتهت': return '✅'; default: return ''; }
+}
+function getBackupData() { return JSON.parse(localStorage.getItem('scheduleData')) || []; }
+function loadBackupData() { scheduleData = getBackupData(); renderTable(); }
+
+loadFromSheet();
+setInterval(() => { if (!isEditMode) loadFromSheet(); }, 30000);
+</script>
+
+</body>
+</html>
