@@ -3,151 +3,738 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إدارة جدول المحاضرات الذكي</title>
+    <title>نظام إدارة المحاضرات الذكي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --main-bg: #f4f7f6; --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --warning: #f1c40f; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--main-bg); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        
-        /* نظام الدخول */
-        .login-bar { background: #eee; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; justify-content: center; }
-        input[type="password"] { padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 120px; text-align: center; }
-        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-edit { background: var(--primary); color: white; }
-        .btn-save { background: var(--success); color: white; display: none; }
-        
-        /* الجدول */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; overflow: hidden; border-radius: 10px; }
-        th, td { border: 1px solid #dfe6e9; padding: 15px; text-align: center; }
-        th { background-color: var(--primary); color: white; }
-        .day-row { background-color: #f8f9fa; font-weight: bold; color: var(--accent); }
-        
-        /* حالات المحاضرة */
-        select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; }
-        .status-not-started { color: #7f8c8d; }
-        .status-arrived { color: #e67e22; font-weight: bold; }
-        .status-running { color: #27ae60; font-weight: bold; text-decoration: underline; }
+        :root {
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --card-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
 
-        /* وضع التعديل */
-        .editing [contenteditable="true"] { background: #fffde7; border-bottom: 2px solid var(--accent); outline: none; }
-        .hidden-edit { display: none; }
-        .editing .hidden-edit { display: inline-block; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg-gradient);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+        }
+
+        /* العنوان */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        /* شريط التحكم */
+        .control-bar {
+            background: linear-gradient(135deg, var(--bg-light) 0%, #e5e7eb 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .login-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-locked {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .status-unlocked {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        input[type="password"] {
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            width: 150px;
+            text-align: center;
+            font-family: 'Cairo', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="password"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        /* الجدول */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 18px;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th:first-child {
+            border-top-right-radius: 15px;
+        }
+
+        th:last-child {
+            border-top-left-radius: 15px;
+        }
+
+        .day-cell {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--primary);
+            vertical-align: middle;
+            border-left: 4px solid var(--primary);
+        }
+
+        tr:hover td {
+            background-color: #f9fafb;
+        }
+
+        /* الخلايا القابلة للتعديل */
+        .editable {
+            position: relative;
+            cursor: text;
+            transition: all 0.3s ease;
+        }
+
+        .editable:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: -2px;
+            background: #fef3c7 !important;
+        }
+
+        .subject-cell {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .type-lecture {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .type-section {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .type-practical {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* حالات المحاضرة */
+        select {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        select:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .status-not-started {
+            color: var(--text-light);
+        }
+
+        .status-arrived {
+            color: var(--warning);
+            font-weight: 700;
+        }
+
+        .status-running {
+            color: var(--success);
+            font-weight: 700;
+            animation: pulse 2s infinite;
+        }
+
+        .status-ended {
+            color: var(--text-light);
+            text-decoration: line-through;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* أيقونات الحالة */
+        .status-icon {
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 1.1rem;
+        }
+
+        /* أزرار الإجراءات */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-icon {
+            width: 35px;
+            height: 35px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 1.1rem;
+        }
+
+        .btn-add {
+            background: var(--info);
+            color: white;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-add:hover {
+            background: #2563eb;
+        }
+
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        .add-row-cell {
+            padding: 10px !important;
+        }
+
+        /* الإشعارات */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .notification-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .notification-error {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* تجاوب */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .control-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .login-section {
+                justify-content: center;
+            }
+
+            th, td {
+                padding: 12px 8px;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* وضع الطباعة */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .control-bar, button {
+                display: none !important;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+        }
     </style>
 </head>
-<body id="mainBody">
+<body>
 
 <div class="container">
-    <h1 style="text-align: center; color: var(--primary);">📅 نظام متابعة المحاضرات</h1>
-
-    <div class="login-bar">
-        <div id="loginSection">
-            <input type="password" id="passCode" placeholder="رمز الدخول">
-            <button class="btn-edit" onclick="unlockAdmin()">دخول (2003)</button>
-        </div>
-        <button id="saveBtn" class="btn-save" onclick="lockAndSave()">💾 حفظ التعديلات والخروج</button>
-        <span id="statusLabel" style="margin-right: 15px; font-weight: bold;">الحالة: 🔒 عرض فقط</span>
+    <div class="header">
+        <h1>📚 نظام إدارة المحاضرات الذكي</h1>
+        <p class="subtitle">متابعة وإدارة جدول المحاضرات بكل سهولة</p>
     </div>
 
-    <table id="scheduleTable">
-        <thead>
-            <tr>
-                <th>اليوم</th>
-                <th>الوقت</th>
-                <th>المادة</th>
-                <th>المكان (القاعة)</th>
-                <th>حالة المحاضرة</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            </tbody>
-    </table>
+    <div class="control-bar">
+        <div class="login-section" id="loginSection">
+            <input type="password" id="passCode" placeholder="أدخل الرمز السري">
+            <button class="btn-primary" onclick="unlockAdmin()">
+                🔓 دخول المدير
+            </button>
+        </div>
+
+        <div id="adminControls" style="display: none;">
+            <div class="action-buttons">
+                <button class="btn-success" onclick="saveChanges()">
+                    💾 حفظ التعديلات
+                </button>
+                <button class="btn-danger" onclick="lockAdmin()">
+                    🔒 إنهاء وقفل
+                </button>
+            </div>
+        </div>
+
+        <span class="status-badge status-locked" id="statusBadge">
+            🔒 وضع القراءة فقط
+        </span>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>اليوم</th>
+                    <th>الوقت</th>
+                    <th>المادة</th>
+                    <th>المكان</th>
+                    <th>حالة المحاضرة</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
 </div>
 
+<div class="notification" id="notification"></div>
+
 <script>
-    // البيانات الأساسية (سيتم حفظ التعديلات في الذاكرة المحلية للمتصفح)
-    const initialData = [
-        { day: "الجمعة", sessions: [
-            { time: "9 - 10.30", subject: "أساسيات", place: "مدرج 1", type: "محاضرة", status: "لم تبدأ" },
-            { time: "10.30 - 12", subject: "جودة", place: "معمل ج", type: "سكشن", status: "لم تبدأ" },
-            { time: "12 - 2.15", subject: "أنظمة", place: "ورشة السيارات", type: "عملي", status: "لم تبدأ" }
-        ]},
-        { day: "السبت", sessions: [
-            { time: "9 - 10.30", subject: "تقارير", place: "قاعة 5", type: "-", status: "لم تبدأ" },
-            { time: "10.30 - 11.15", subject: "جودة", place: "قاعة 5", type: "-", status: "لم تبدأ" },
-            { time: "1.30 - 2.15", subject: "تك معادن", place: "مدرج ج", type: "محاضرة", status: "لم تبدأ" },
-            { time: "2.15 - 4.30", subject: "أساسيات", place: "معمل", type: "عملي", status: "لم تبدأ" }
-        ]},
-        { day: "الأحد", sessions: [
-            { time: "9 - 10", subject: "تك مركبات هجين", place: "معمل الهجين", type: "سكشن", status: "لم تبدأ" },
-            { time: "11.15 - 12", subject: "تكنولوجيا المركبات", place: "مدرج 2", type: "محاضرة", status: "لم تبدأ" },
-            { time: "12 - 2.15", subject: "أساسيات محرك", place: "ورشة 1", type: "سكشن", status: "لم تبدأ" },
-            { time: "2.15 - 4.30", subject: "تكنولوجيا معادن", place: "معمل معادن", type: "سكشن", status: "لم تبدأ" }
-        ]}
-    ];
+// البيانات الأساسية
+const initialData = [
+    { day: "الجمعة", sessions: [
+        { time: "9 - 10.30", subject: "أساسيات", place: "مدرج 1", type: "محاضرة", status: "لم تبدأ" },
+        { time: "10.30 - 12", subject: "جودة", place: "معمل ج", type: "سكشن", status: "لم تبدأ" },
+        { time: "12 - 2.15", subject: "أنظمة", place: "ورشة السيارات", type: "عملي", status: "لم تبدأ" }
+    ]},
+    { day: "السبت", sessions: [
+        { time: "9 - 10.30", subject: "تقارير", place: "قاعة 5", type: "محاضرة", status: "لم تبدأ" },
+        { time: "10.30 - 11.15", subject: "جودة", place: "قاعة 5", type: "سكشن", status: "لم تبدأ" },
+        { time: "1.30 - 2.15", subject: "تك معادن", place: "مدرج ج", type: "محاضرة", status: "لم تبدأ" },
+        { time: "2.15 - 4.30", subject: "أساسيات", place: "معمل", type: "عملي", status: "لم تبدأ" }
+    ]},
+    { day: "الأحد", sessions: [
+        { time: "9 - 10", subject: "تك مركبات هجين", place: "معمل الهجين", type: "سكشن", status: "لم تبدأ" },
+        { time: "11.15 - 12", subject: "تكنولوجيا المركبات", place: "مدرج 2", type: "محاضرة", status: "لم تبدأ" },
+        { time: "12 - 2.15", subject: "أساسيات محرك", place: "ورشة 1", type: "سكشن", status: "لم تبدأ" },
+        { time: "2.15 - 4.30", subject: "تكنولوجيا معادن", place: "معمل معادن", type: "سكشن", status: "لم تبدأ" }
+    ]}
+];
 
-    // تحميل البيانات المحفوظة أو استخدام الافتراضية
-    let currentData = JSON.parse(localStorage.getItem('universitySchedule')) || initialData;
+// تحميل البيانات المحفوظة أو استخدام الافتراضية
+let scheduleData = JSON.parse(localStorage.getItem('scheduleData')) || JSON.parse(JSON.stringify(initialData));
+let isEditMode = false;
 
-    function renderTable() {
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
+// رسم الجدول
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
 
-        currentData.forEach((dayData) => {
-            dayData.sessions.forEach((session, index) => {
-                const tr = document.createElement('tr');
-                
-                // إضافة خانة اليوم (دمج الخلايا)
-                if (index === 0) {
-                    tr.innerHTML += `<td rowspan="${dayData.sessions.length}" class="day-row">${dayData.day}</td>`;
-                }
+    scheduleData.forEach((dayData, dayIndex) => {
+        dayData.sessions.forEach((session, sessionIndex) => {
+            const tr = document.createElement('tr');
+            
+            // خانة اليوم (دمج الخلايا)
+            if (sessionIndex === 0) {
+                const dayCell = document.createElement('td');
+                dayCell.className = 'day-cell';
+                dayCell.rowSpan = dayData.sessions.length + (isEditMode ? 1 : 0);
+                dayCell.textContent = dayData.day;
+                tr.appendChild(dayCell);
+            }
 
-                tr.innerHTML += `
-                    <td contenteditable="false" class="edit-field">${session.time}</td>
-                    <td contenteditable="false" class="edit-field"><strong>${session.subject}</strong> <br><small>${session.type}</small></td>
-                    <td contenteditable="false" class="edit-field">${session.place}</td>
-                    <td>
-                        <select onchange="updateStatus(this)" disabled class="status-select">
-                            <option ${session.status === 'لم تبدأ' ? 'selected' : ''}>لم تبدأ</option>
-                            <option ${session.status === 'الدكتور وصل' ? 'selected' : ''}>الدكتور وصل</option>
-                            <option ${session.status === 'بدأت الآن' ? 'selected' : ''}>بدأت الآن</option>
-                            <option ${session.status === 'انتهت' ? 'selected' : ''}>انتهت</option>
-                        </select>
-                    </td>
-                `;
-                tbody.appendChild(tr);
+            // الوقت
+            const timeCell = document.createElement('td');
+            timeCell.className = isEditMode ? 'editable' : '';
+            timeCell.contentEditable = isEditMode;
+            timeCell.textContent = session.time;
+            timeCell.dataset.dayIndex = dayIndex;
+            timeCell.dataset.sessionIndex = sessionIndex;
+            timeCell.dataset.field = 'time';
+            if (isEditMode) {
+                timeCell.addEventListener('blur', saveEditedCell);
+            }
+            tr.appendChild(timeCell);
+
+            // المادة
+            const subjectCell = document.createElement('td');
+            subjectCell.className = 'subject-cell';
+            subjectCell.innerHTML = `
+                <div class="editable ${isEditMode ? '' : ''}" contenteditable="${isEditMode}" 
+                     data-day-index="${dayIndex}" data-session-index="${sessionIndex}" data-field="subject">
+                    ${session.subject}
+                </div>
+                <div class="type-badge type-${getTypeClass(session.type)}">${session.type}</div>
+            `;
+            if (isEditMode) {
+                subjectCell.querySelector('.editable').addEventListener('blur', saveEditedCell);
+            }
+            tr.appendChild(subjectCell);
+
+            // المكان
+            const placeCell = document.createElement('td');
+            placeCell.className = isEditMode ? 'editable' : '';
+            placeCell.contentEditable = isEditMode;
+            placeCell.textContent = session.place;
+            placeCell.dataset.dayIndex = dayIndex;
+            placeCell.dataset.sessionIndex = sessionIndex;
+            placeCell.dataset.field = 'place';
+            if (isEditMode) {
+                placeCell.addEventListener('blur', saveEditedCell);
+            }
+            tr.appendChild(placeCell);
+
+            // حالة المحاضرة
+            const statusCell = document.createElement('td');
+            if (isEditMode) {
+                // إضافة زر حذف في وضع التعديل
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete';
+                deleteBtn.innerHTML = '🗑️ حذف';
+                deleteBtn.onclick = () => deleteSession(dayIndex, sessionIndex);
+                statusCell.appendChild(deleteBtn);
+                statusCell.appendChild(document.createElement('br'));
+            }
+            
+            const select = document.createElement('select');
+            select.disabled = !isEditMode;
+            select.className = `status-${getStatusClass(session.status)}`;
+            select.dataset.dayIndex = dayIndex;
+            select.dataset.sessionIndex = sessionIndex;
+            
+            ['لم تبدأ', 'الدكتور وصل', 'بدأت الآن', 'انتهت'].forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status + ' ' + getStatusIcon(status);
+                option.selected = session.status === status;
+                select.appendChild(option);
             });
+            
+            select.addEventListener('change', updateStatus);
+            statusCell.appendChild(select);
+            tr.appendChild(statusCell);
+
+            tbody.appendChild(tr);
         });
-    }
 
-    function unlockAdmin() {
-        const pass = document.getElementById('passCode').value;
-        if (pass === "2003") {
-            document.getElementById('mainBody').classList.add('editing');
-            document.querySelectorAll('.edit-field').forEach(el => el.contenteditable = "true");
-            document.querySelectorAll('.status-select').forEach(el => el.disabled = false);
-            document.getElementById('loginSection').style.display = "none";
-            document.getElementById('saveBtn').style.display = "block";
-            document.getElementById('statusLabel').innerHTML = "الحالة: ✍️ وضع التعديل (أنت المدير الآن)";
-        } else {
-            alert("الرمز خطأ! حاول مرة أخرى.");
+        // إضافة صف "إضافة محاضرة" في وضع التعديل
+        if (isEditMode) {
+            const addRow = document.createElement('tr');
+            addRow.innerHTML = `
+                <td colspan="4" class="add-row-cell" style="text-align: center; background: #f9fafb;">
+                    <button class="btn-add" onclick="addNewSession(${dayIndex})">
+                        ➕ إضافة محاضرة جديدة ليوم ${dayData.day}
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(addRow);
         }
-    }
+    });
+}
 
-    function lockAndSave() {
-        // هنا نقوم بحفظ الحالة الحالية في المتصفح
-        // ملاحظة: للحفاظ على البيانات بشكل دائم يفضل استخدام قاعدة بيانات، لكن localStorage تفي بالغرض لجهازك الشخصي
-        alert("تم حفظ التعديلات بنجاح!");
-        location.reload(); 
-    }
-
-    function updateStatus(selectEl) {
-        const val = selectEl.value;
-        if (val === "بدأت الآن") selectEl.className = "status-select status-running";
-        else if (val === "الدكتور وصل") selectEl.className = "status-select status-arrived";
-        else selectEl.className = "status-select status-not-started";
-    }
-
+// إضافة محاضرة جديدة
+function addNewSession(dayIndex) {
+    const newSession = {
+        time: "الوقت",
+        subject: "اسم المادة",
+        place: "المكان",
+        type: "محاضرة",
+        status: "لم تبدأ"
+    };
+    
+    scheduleData[dayIndex].sessions.push(newSession);
     renderTable();
+    showNotification('تمت إضافة محاضرة جديدة! عدّل البيانات حسب احتياجك', 'success');
+}
+
+// حذف محاضرة
+function deleteSession(dayIndex, sessionIndex) {
+    if (confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) {
+        scheduleData[dayIndex].sessions.splice(sessionIndex, 1);
+        renderTable();
+        showNotification('تم حذف المحاضرة بنجاح', 'success');
+    }
+}
+
+// حفظ التعديلات في الخلية
+function saveEditedCell(e) {
+    const dayIndex = parseInt(e.target.dataset.dayIndex);
+    const sessionIndex = parseInt(e.target.dataset.sessionIndex);
+    const field = e.target.dataset.field;
+    const newValue = e.target.textContent.trim();
+    
+    scheduleData[dayIndex].sessions[sessionIndex][field] = newValue;
+}
+
+// تحديث حالة المحاضرة
+function updateStatus(e) {
+    const dayIndex = parseInt(e.target.dataset.dayIndex);
+    const sessionIndex = parseInt(e.target.dataset.sessionIndex);
+    const newStatus = e.target.value;
+    
+    scheduleData[dayIndex].sessions[sessionIndex].status = newStatus;
+    e.target.className = `status-${getStatusClass(newStatus)}`;
+    
+    if (isEditMode) {
+        showNotification('تم تحديث الحالة', 'success');
+    }
+}
+
+// فتح وضع التعديل
+function unlockAdmin() {
+    const pass = document.getElementById('passCode').value;
+    if (pass === '2003') {
+        isEditMode = true;
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('adminControls').style.display = 'block';
+        document.getElementById('statusBadge').className = 'status-badge status-unlocked';
+        document.getElementById('statusBadge').innerHTML = '✍️ وضع التعديل النشط';
+        renderTable();
+        showNotification('مرحباً بك في وضع المدير!', 'success');
+    } else {
+        showNotification('الرمز السري خاطئ!', 'error');
+    }
+}
+
+// حفظ التعديلات
+function saveChanges() {
+    localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
+    showNotification('تم حفظ جميع التعديلات بنجاح! ✅', 'success');
+}
+
+// إقفال وضع التعديل
+function lockAdmin() {
+    saveChanges();
+    isEditMode = false;
+    document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('adminControls').style.display = 'none';
+    document.getElementById('statusBadge').className = 'status-badge status-locked';
+    document.getElementById('statusBadge').innerHTML = '🔒 وضع القراءة فقط';
+    document.getElementById('passCode').value = '';
+    renderTable();
+    showNotification('تم إقفال وضع التعديل', 'success');
+}
+
+// الإشعارات
+function showNotification(message, type) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification notification-${type} show`;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+// دوال مساعدة
+function getTypeClass(type) {
+    if (type.includes('محاضرة')) return 'lecture';
+    if (type.includes('سكشن')) return 'section';
+    if (type.includes('عملي')) return 'practical';
+    return 'lecture';
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'لم تبدأ': return 'not-started';
+        case 'الدكتور وصل': return 'arrived';
+        case 'بدأت الآن': return 'running';
+        case 'انتهت': return 'ended';
+        default: return 'not-started';
+    }
+}
+
+function getStatusIcon(status) {
+    switch(status) {
+        case 'لم تبدأ': return '⏳';
+        case 'الدكتور وصل': return '👨‍🏫';
+        case 'بدأت الآن': return '▶️';
+        case 'انتهت': return '✅';
+        default: return '';
+    }
+}
+
+// بدء التطبيق
+renderTable();
 </script>
 
 </body>
