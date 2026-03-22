@@ -138,11 +138,10 @@
 <script>
 // --- إعدادات Google Sheets ---
 const SHEET_ID = '1UPuMmJqmX5ffPye3LA6DgJKTR435HgrCKrbsOenP-_0';
-// إضافة gid=0 لضمان قراءة الصفحة الأولى (نظام إدارة) دائماً
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 
-// الرابط الجديد الذي أرسلته (رابط التطبيق الخاص بك)
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrE6RBiKioGfl0kY3-kQ1UwEdXR3WpIW8MLLSuomxNiQYQd_DT92TLovOz5tQSTmal/exec';
+// الرابط الجديد النهائي (تخطى مشكلة الـ CORS ومسؤول عن الحفظ)
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTwxtuiIATI2t-SVbkdHzZR2lOW1jXQOJ-7SIh32a3UoCPhfmtLeSXyzFqI3sEv7dP/exec';
 
 let scheduleData = [];
 let isEditMode = false;
